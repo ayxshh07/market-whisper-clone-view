@@ -1,15 +1,17 @@
-
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Activity, Volume2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Volume2, Clock, AlertCircle } from 'lucide-react';
+import { MarketDataService, type MarketHours, type IndexData } from '../services/marketDataService';
 
 const MarketPulse = () => {
+  const [marketHours, setMarketHours] = useState<MarketHours | null>(null);
+  const [indices, setIndices] = useState<IndexData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // You'll need to get a free API key from Alpha Vantage
+  const API_KEY = 'demo'; // Replace with your actual API key
+
   const [marketData, setMarketData] = useState({
-    indices: [
-      { name: 'NIFTY 50', value: 19654.35, change: 156.25, changePercent: 0.80 },
-      { name: 'SENSEX', value: 65953.48, change: 528.17, changePercent: 0.81 },
-      { name: 'BANK NIFTY', value: 44692.15, change: -89.45, changePercent: -0.20 },
-      { name: 'NIFTY IT', value: 30847.25, change: 287.65, changePercent: 0.94 },
-    ],
     topGainers: [
       { symbol: 'ADANIENT', price: 2847.50, change: 12.45, changePercent: 4.56 },
       { symbol: 'TATAMOTORS', price: 756.20, change: 28.15, changePercent: 3.87 },
@@ -33,37 +35,102 @@ const MarketPulse = () => {
     ]
   });
 
-  // Simulate live data updates
   useEffect(() => {
+    const marketService = new MarketDataService(API_KEY);
+    
+    const fetchMarketData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Get market hours
+        const hours = marketService.getMarketHours();
+        setMarketHours(hours);
+        
+        // Get index data
+        const indexData = await marketService.getIndexData();
+        setIndices(indexData);
+        
+        setError(null);
+      } catch (err) {
+        setError('Failed to fetch market data');
+        console.error('Market data error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMarketData();
+
+    // Refresh data every 30 seconds if market is open
     const interval = setInterval(() => {
-      setMarketData(prev => ({
-        ...prev,
-        indices: prev.indices.map(index => ({
-          ...index,
-          value: index.value + (Math.random() - 0.5) * 10,
-          change: index.change + (Math.random() - 0.5) * 2,
-          changePercent: parseFloat((index.changePercent + (Math.random() - 0.5) * 0.1).toFixed(2))
-        }))
-      }));
-    }, 3000);
+      if (marketHours?.isOpen) {
+        fetchMarketData();
+      }
+    }, 30000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [API_KEY, marketHours?.isOpen]);
 
   const formatValue = (value: number) => value.toLocaleString('en-IN', { minimumFractionDigits: 2 });
   const formatChange = (change: number) => (change >= 0 ? '+' : '') + formatValue(change);
   const formatPercent = (percent: number) => (percent >= 0 ? '+' : '') + percent.toFixed(2) + '%';
 
+  const getMarketStatusColor = () => {
+    if (!marketHours) return 'text-gray-400';
+    return marketHours.isOpen ? 'text-green-400' : 'text-red-400';
+  };
+
   return (
     <div className="space-y-6">
+      {/* Market Status */}
+      <div className="bg-slate-800 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Clock className={`h-5 w-5 ${getMarketStatusColor()}`} />
+            <div>
+              <span className="font-medium text-white">Market Status: </span>
+              <span className={`font-bold ${getMarketStatusColor()}`}>
+                {marketHours ? (marketHours.isOpen ? 'OPEN' : 'CLOSED') : 'Loading...'}
+              </span>
+            </div>
+          </div>
+          {marketHours && (
+            <div className="text-sm text-slate-400">
+              {marketHours.isOpen 
+                ? `Closes at ${marketHours.nextClose} ${marketHours.timezone}`
+                : `Opens at ${marketHours.nextOpen} ${marketHours.timezone}`
+              }
+            </div>
+          )}
+        </div>
+        
+        {API_KEY === 'demo' && (
+          <div className="mt-3 flex items-center space-x-2 text-yellow-400 bg-yellow-400/10 p-3 rounded">
+            <AlertCircle className="h-4 w-4" />
+            <span className="text-sm">
+              Using demo data. Get a free API key from Alpha Vantage for real market data.
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* Market Indices */}
       <div className="bg-slate-800 rounded-lg p-6">
         <h2 className="text-xl font-semibold mb-4 flex items-center">
           <Activity className="h-5 w-5 mr-2 text-green-400" />
           Market Indices
+          {isLoading && <div className="ml-2 text-sm text-slate-400">Updating...</div>}
         </h2>
+        
+        {error && (
+          <div className="mb-4 text-red-400 text-sm flex items-center">
+            <AlertCircle className="h-4 w-4 mr-2" />
+            {error} - Showing cached data
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {marketData.indices.map((index) => (
+          {indices.map((index) => (
             <div key={index.name} className="bg-slate-700 rounded-lg p-4">
               <h3 className="font-medium text-slate-300 mb-2">{index.name}</h3>
               <div className="text-2xl font-bold mb-1">{formatValue(index.value)}</div>
@@ -77,6 +144,9 @@ const MarketPulse = () => {
                 )}
                 <span>{formatChange(index.change)}</span>
                 <span>({formatPercent(index.changePercent)})</span>
+              </div>
+              <div className="text-xs text-slate-500 mt-1">
+                {marketHours?.isOpen ? 'Live' : index.lastUpdated}
               </div>
             </div>
           ))}

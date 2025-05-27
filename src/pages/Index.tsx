@@ -1,12 +1,22 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TrendingUp, BarChart3, Target, Activity } from 'lucide-react';
 import MarketPulse from '../components/MarketPulse';
 import InsiderStrategy from '../components/InsiderStrategy';
 import SectorScope from '../components/SectorScope';
+import ApiKeySetup from '../components/ApiKeySetup';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('market-pulse');
+  const [apiKey, setApiKey] = useState<string>('');
+
+  useEffect(() => {
+    // Load API key from localStorage on component mount
+    const savedApiKey = localStorage.getItem('alpha_vantage_api_key');
+    if (savedApiKey) {
+      setApiKey(savedApiKey);
+    }
+  }, []);
 
   const tabs = [
     { id: 'market-pulse', label: 'Market Pulse', icon: Activity },
@@ -17,7 +27,12 @@ const Index = () => {
   const renderActiveComponent = () => {
     switch (activeTab) {
       case 'market-pulse':
-        return <MarketPulse />;
+        return (
+          <>
+            <ApiKeySetup onApiKeySet={setApiKey} currentApiKey={apiKey} />
+            <MarketPulse />
+          </>
+        );
       case 'insider-strategy':
         return <InsiderStrategy />;
       case 'sector-scope':
