@@ -7,9 +7,15 @@ const MarketPulse = () => {
   const [indices, setIndices] = useState<IndexData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // You'll need to get a free API key from Alpha Vantage
-  const API_KEY = 'demo'; // Replace with your actual API key
+  const [apiKey, setApiKey] = useState<string>('');
+
+  // Load API key from localStorage
+  useEffect(() => {
+    const savedApiKey = localStorage.getItem('alpha_vantage_api_key');
+    if (savedApiKey) {
+      setApiKey(savedApiKey);
+    }
+  }, []);
 
   const [marketData, setMarketData] = useState({
     topGainers: [
@@ -36,18 +42,23 @@ const MarketPulse = () => {
   });
 
   useEffect(() => {
-    const marketService = new MarketDataService(API_KEY);
+    if (!apiKey) return; // Don't fetch if no API key
+
+    const marketService = new MarketDataService(apiKey);
     
     const fetchMarketData = async () => {
       try {
         setIsLoading(true);
+        console.log('Fetching market data with API key:', apiKey);
         
         // Get market hours
         const hours = marketService.getMarketHours();
         setMarketHours(hours);
+        console.log('Market hours:', hours);
         
         // Get index data
         const indexData = await marketService.getIndexData();
+        console.log('Index data received:', indexData);
         setIndices(indexData);
         
         setError(null);
@@ -69,7 +80,7 @@ const MarketPulse = () => {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [API_KEY, marketHours?.isOpen]);
+  }, [apiKey, marketHours?.isOpen]);
 
   const formatValue = (value: number) => value.toLocaleString('en-IN', { minimumFractionDigits: 2 });
   const formatChange = (change: number) => (change >= 0 ? '+' : '') + formatValue(change);
@@ -104,11 +115,11 @@ const MarketPulse = () => {
           )}
         </div>
         
-        {API_KEY === 'demo' && (
+        {!apiKey && (
           <div className="mt-3 flex items-center space-x-2 text-yellow-400 bg-yellow-400/10 p-3 rounded">
             <AlertCircle className="h-4 w-4" />
             <span className="text-sm">
-              Using demo data. Get a free API key from Alpha Vantage for real market data.
+              Please configure your Alpha Vantage API key above to get real market data.
             </span>
           </div>
         )}
