@@ -1,12 +1,13 @@
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Activity, Volume2, Clock, CheckCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Volume2, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { MarketDataService, type MarketHours, type IndexData } from '../services/marketDataService';
 
 const MarketPulse = () => {
   const [marketHours, setMarketHours] = useState<MarketHours | null>(null);
   const [indices, setIndices] = useState<IndexData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dataSource, setDataSource] = useState<'live' | 'fallback'>('live');
   const [marketData, setMarketData] = useState({
     topGainers: [],
     topLosers: [],
@@ -19,7 +20,7 @@ const MarketPulse = () => {
     const fetchMarketData = async () => {
       try {
         setIsLoading(true);
-        console.log('Fetching live Indian market data...');
+        console.log('Fetching real Indian market data...');
         
         // Get market hours
         const hours = marketService.getMarketHours();
@@ -31,10 +32,16 @@ const MarketPulse = () => {
         console.log('Index data updated');
         setIndices(indexData);
         
+        // Check if we got real data or fallback
+        const hasRealData = indexData.some(index => 
+          index.lastUpdated !== 'Live Data Unavailable'
+        );
+        setDataSource(hasRealData ? 'live' : 'fallback');
+        
         // Get stock data
-        const gainers = marketService.getTopGainers();
-        const losers = marketService.getTopLosers();
-        const volumeLeaders = marketService.getVolumeLeaders();
+        const gainers = await marketService.getTopGainers();
+        const losers = await marketService.getTopLosers();
+        const volumeLeaders = await marketService.getVolumeLeaders();
         
         setMarketData({
           topGainers: gainers,
@@ -44,6 +51,7 @@ const MarketPulse = () => {
         
       } catch (err) {
         console.error('Market data error:', err);
+        setDataSource('fallback');
       } finally {
         setIsLoading(false);
       }
@@ -51,12 +59,12 @@ const MarketPulse = () => {
 
     fetchMarketData();
 
-    // Refresh data every 10 seconds if market is open, every 30 seconds if closed
-    const refreshInterval = marketHours?.isOpen ? 10000 : 30000;
+    // Refresh data every 30 seconds for real data, every 2 minutes for fallback
+    const refreshInterval = dataSource === 'live' ? 30000 : 120000;
     const interval = setInterval(fetchMarketData, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [marketHours?.isOpen]);
+  }, [dataSource]);
 
   const formatValue = (value: number) => value.toLocaleString('en-IN', { minimumFractionDigits: 2 });
   const formatChange = (change: number) => (change >= 0 ? '+' : '') + formatValue(change);
@@ -91,12 +99,20 @@ const MarketPulse = () => {
           )}
         </div>
         
-        <div className="mt-3 flex items-center space-x-2 text-green-400 bg-green-400/10 p-3 rounded">
-          <CheckCircle className="h-4 w-4" />
+        <div className={`mt-3 flex items-center space-x-2 p-3 rounded ${
+          dataSource === 'live' 
+            ? 'text-green-400 bg-green-400/10' 
+            : 'text-orange-400 bg-orange-400/10'
+        }`}>
+          {dataSource === 'live' ? (
+            <CheckCircle className="h-4 w-4" />
+          ) : (
+            <AlertTriangle className="h-4 w-4" />
+          )}
           <span className="text-sm">
-            {marketHours?.isOpen 
-              ? 'Showing live market data with realistic price movements'
-              : 'Showing previous closing data with realistic market simulation'
+            {dataSource === 'live' 
+              ? 'Showing real live market data from NSE India'
+              : 'Live data unavailable. Showing fallback data with realistic movements'
             }
           </span>
         </div>
