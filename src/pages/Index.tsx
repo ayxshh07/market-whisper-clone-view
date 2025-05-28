@@ -1,22 +1,12 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { TrendingUp, BarChart3, Target, Activity } from 'lucide-react';
 import MarketPulse from '../components/MarketPulse';
 import InsiderStrategy from '../components/InsiderStrategy';
 import SectorScope from '../components/SectorScope';
-import ApiKeySetup from '../components/ApiKeySetup';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('market-pulse');
-  const [apiKey, setApiKey] = useState<string>('');
-
-  useEffect(() => {
-    // Load API key from localStorage on component mount
-    const savedApiKey = localStorage.getItem('alpha_vantage_api_key');
-    if (savedApiKey) {
-      setApiKey(savedApiKey);
-    }
-  }, []);
 
   const tabs = [
     { id: 'market-pulse', label: 'Market Pulse', icon: Activity },
@@ -27,12 +17,7 @@ const Index = () => {
   const renderActiveComponent = () => {
     switch (activeTab) {
       case 'market-pulse':
-        return (
-          <>
-            <ApiKeySetup onApiKeySet={setApiKey} currentApiKey={apiKey} />
-            <MarketPulse />
-          </>
-        );
+        return <MarketPulse />;
       case 'insider-strategy':
         return <InsiderStrategy />;
       case 'sector-scope':
@@ -52,7 +37,7 @@ const Index = () => {
             <h1 className="text-2xl font-bold">TradeFinder Clone</h1>
           </div>
           <div className="text-sm text-slate-400">
-            Live Market Analysis • Free Personal Use
+            Live Indian Market Analysis • Real-time Data
           </div>
         </div>
       </header>

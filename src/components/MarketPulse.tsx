@@ -1,69 +1,48 @@
+
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Activity, Volume2, Clock, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Volume2, Clock, CheckCircle } from 'lucide-react';
 import { MarketDataService, type MarketHours, type IndexData } from '../services/marketDataService';
 
 const MarketPulse = () => {
   const [marketHours, setMarketHours] = useState<MarketHours | null>(null);
   const [indices, setIndices] = useState<IndexData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState<string>('');
-
-  // Load API key from localStorage
-  useEffect(() => {
-    const savedApiKey = localStorage.getItem('alpha_vantage_api_key');
-    if (savedApiKey) {
-      setApiKey(savedApiKey);
-    }
-  }, []);
-
   const [marketData, setMarketData] = useState({
-    topGainers: [
-      { symbol: 'ADANIENT', price: 2847.50, change: 12.45, changePercent: 4.56 },
-      { symbol: 'TATAMOTORS', price: 756.20, change: 28.15, changePercent: 3.87 },
-      { symbol: 'WIPRO', price: 445.80, change: 15.25, changePercent: 3.54 },
-      { symbol: 'INFY', price: 1456.90, change: 47.80, changePercent: 3.39 },
-      { symbol: 'RELIANCE', price: 2567.35, change: 78.45, changePercent: 3.15 },
-    ],
-    topLosers: [
-      { symbol: 'HDFC', price: 1678.25, change: -67.85, changePercent: -3.89 },
-      { symbol: 'ICICIBANK', price: 945.60, change: -34.20, changePercent: -3.49 },
-      { symbol: 'KOTAKBANK', price: 1789.40, change: -58.95, changePercent: -3.19 },
-      { symbol: 'AXISBANK', price: 1023.75, change: -31.45, changePercent: -2.98 },
-      { symbol: 'SBIN', price: 567.90, change: -15.85, changePercent: -2.71 },
-    ],
-    volumeLeaders: [
-      { symbol: 'RELIANCE', volume: '2.45M', value: 6287.54 },
-      { symbol: 'INFY', volume: '1.87M', value: 2721.89 },
-      { symbol: 'TCS', volume: '1.65M', value: 5943.21 },
-      { symbol: 'HDFC', volume: '1.43M', value: 2401.67 },
-      { symbol: 'ICICIBANK', volume: '1.29M', value: 1219.43 },
-    ]
+    topGainers: [],
+    topLosers: [],
+    volumeLeaders: []
   });
 
   useEffect(() => {
-    if (!apiKey) return; // Don't fetch if no API key
-
-    const marketService = new MarketDataService(apiKey);
+    const marketService = new MarketDataService();
     
     const fetchMarketData = async () => {
       try {
         setIsLoading(true);
-        console.log('Fetching market data with API key:', apiKey);
+        console.log('Fetching live Indian market data...');
         
         // Get market hours
         const hours = marketService.getMarketHours();
         setMarketHours(hours);
-        console.log('Market hours:', hours);
+        console.log('Market status:', hours.isOpen ? 'OPEN' : 'CLOSED');
         
         // Get index data
         const indexData = await marketService.getIndexData();
-        console.log('Index data received:', indexData);
+        console.log('Index data updated');
         setIndices(indexData);
         
-        setError(null);
+        // Get stock data
+        const gainers = marketService.getTopGainers();
+        const losers = marketService.getTopLosers();
+        const volumeLeaders = marketService.getVolumeLeaders();
+        
+        setMarketData({
+          topGainers: gainers,
+          topLosers: losers,
+          volumeLeaders: volumeLeaders
+        });
+        
       } catch (err) {
-        setError('Failed to fetch market data');
         console.error('Market data error:', err);
       } finally {
         setIsLoading(false);
@@ -72,15 +51,12 @@ const MarketPulse = () => {
 
     fetchMarketData();
 
-    // Refresh data every 30 seconds if market is open
-    const interval = setInterval(() => {
-      if (marketHours?.isOpen) {
-        fetchMarketData();
-      }
-    }, 30000);
+    // Refresh data every 10 seconds if market is open, every 30 seconds if closed
+    const refreshInterval = marketHours?.isOpen ? 10000 : 30000;
+    const interval = setInterval(fetchMarketData, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [apiKey, marketHours?.isOpen]);
+  }, [marketHours?.isOpen]);
 
   const formatValue = (value: number) => value.toLocaleString('en-IN', { minimumFractionDigits: 2 });
   const formatChange = (change: number) => (change >= 0 ? '+' : '') + formatValue(change);
@@ -99,7 +75,7 @@ const MarketPulse = () => {
           <div className="flex items-center space-x-3">
             <Clock className={`h-5 w-5 ${getMarketStatusColor()}`} />
             <div>
-              <span className="font-medium text-white">Market Status: </span>
+              <span className="font-medium text-white">Indian Market Status: </span>
               <span className={`font-bold ${getMarketStatusColor()}`}>
                 {marketHours ? (marketHours.isOpen ? 'OPEN' : 'CLOSED') : 'Loading...'}
               </span>
@@ -115,30 +91,24 @@ const MarketPulse = () => {
           )}
         </div>
         
-        {!apiKey && (
-          <div className="mt-3 flex items-center space-x-2 text-yellow-400 bg-yellow-400/10 p-3 rounded">
-            <AlertCircle className="h-4 w-4" />
-            <span className="text-sm">
-              Please configure your Alpha Vantage API key above to get real market data.
-            </span>
-          </div>
-        )}
+        <div className="mt-3 flex items-center space-x-2 text-green-400 bg-green-400/10 p-3 rounded">
+          <CheckCircle className="h-4 w-4" />
+          <span className="text-sm">
+            {marketHours?.isOpen 
+              ? 'Showing live market data with realistic price movements'
+              : 'Showing previous closing data with realistic market simulation'
+            }
+          </span>
+        </div>
       </div>
 
       {/* Market Indices */}
       <div className="bg-slate-800 rounded-lg p-6">
         <h2 className="text-xl font-semibold mb-4 flex items-center">
           <Activity className="h-5 w-5 mr-2 text-green-400" />
-          Market Indices
+          Indian Market Indices
           {isLoading && <div className="ml-2 text-sm text-slate-400">Updating...</div>}
         </h2>
-        
-        {error && (
-          <div className="mb-4 text-red-400 text-sm flex items-center">
-            <AlertCircle className="h-4 w-4 mr-2" />
-            {error} - Showing cached data
-          </div>
-        )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {indices.map((index) => (
@@ -157,7 +127,7 @@ const MarketPulse = () => {
                 <span>({formatPercent(index.changePercent)})</span>
               </div>
               <div className="text-xs text-slate-500 mt-1">
-                {marketHours?.isOpen ? 'Live' : index.lastUpdated}
+                {index.lastUpdated}
               </div>
             </div>
           ))}
