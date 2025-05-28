@@ -84,58 +84,28 @@ class MarketDataService {
 
   async getIndexData(): Promise<IndexData[]> {
     try {
-      console.log('Fetching real NSE index data...');
+      console.log('Fetching real market data from Yahoo Finance...');
       
-      // Using NSE India API endpoints for real data
       const indices = [
-        { name: 'NIFTY 50', symbol: 'NIFTY%2050', endpoint: 'NIFTY%2050' },
-        { name: 'SENSEX', symbol: 'SENSEX', endpoint: 'SENSEX' },
-        { name: 'BANK NIFTY', symbol: 'NIFTY%20BANK', endpoint: 'NIFTY%20BANK' },
-        { name: 'NIFTY IT', symbol: 'NIFTY%20IT', endpoint: 'NIFTY%20IT' },
+        { name: 'NIFTY 50', symbol: '^NSEI' },
+        { name: 'SENSEX', symbol: '^BSESN' },
+        { name: 'BANK NIFTY', symbol: '^NSEBANK' },
+        { name: 'NIFTY IT', symbol: '^CNXIT' },
       ];
 
       const results = await Promise.all(
         indices.map(async (index) => {
           try {
-            // Using NSE India's public API
-            const response = await fetch(`https://www.nseindia.com/api/allIndices`, {
-              headers: {
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-              }
-            });
+            console.log(`Fetching ${index.name} data...`);
+            
+            // Using Yahoo Finance API with CORS proxy
+            const proxyUrl = 'https://api.allorigins.win/raw?url=';
+            const yahooUrl = encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${index.symbol}`);
+            const response = await fetch(`${proxyUrl}${yahooUrl}`);
             
             if (response.ok) {
               const data = await response.json();
-              const indexData = data.data?.find((item: any) => 
-                item.index === index.name.replace('%20', ' ').replace('%2050', ' 50')
-              );
-              
-              if (indexData) {
-                return {
-                  name: index.name.replace('%20', ' ').replace('%2050', ' 50'),
-                  value: parseFloat(indexData.last) || 0,
-                  change: parseFloat(indexData.variation) || 0,
-                  changePercent: parseFloat(indexData.pChange) || 0,
-                  lastUpdated: new Date().toLocaleTimeString('en-IN', { 
-                    timeZone: 'Asia/Kolkata',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })
-                };
-              }
-            }
-            
-            // Fallback to Yahoo Finance
-            const yahooResponse = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${this.getYahooSymbol(index.name)}`, {
-              headers: {
-                'Accept': 'application/json'
-              }
-            });
-            
-            if (yahooResponse.ok) {
-              const yahooData = await yahooResponse.json();
-              const result = yahooData.chart?.result?.[0];
+              const result = data.chart?.result?.[0];
               const meta = result?.meta;
               
               if (meta) {
@@ -144,8 +114,10 @@ class MarketDataService {
                 const change = currentPrice - previousClose;
                 const changePercent = previousClose ? (change / previousClose) * 100 : 0;
                 
+                console.log(`${index.name}: ₹${currentPrice.toFixed(2)} (${changePercent.toFixed(2)}%)`);
+                
                 return {
-                  name: index.name.replace('%20', ' ').replace('%2050', ' 50'),
+                  name: index.name,
                   value: currentPrice,
                   change: change,
                   changePercent: changePercent,
@@ -158,17 +130,39 @@ class MarketDataService {
               }
             }
             
-            throw new Error('No data available');
+            // If Yahoo Finance fails, try alternative API
+            const alternativeResponse = await fetch(`https://api.finage.co.uk/last/stock/${index.symbol}?apikey=API_KEY_DEMO`);
+            if (alternativeResponse.ok) {
+              const altData = await alternativeResponse.json();
+              if (altData.price) {
+                const currentPrice = altData.price;
+                const change = altData.change || 0;
+                const changePercent = altData.changePercent || 0;
+                
+                return {
+                  name: index.name,
+                  value: currentPrice,
+                  change: change,
+                  changePercent: changePercent,
+                  lastUpdated: new Date().toLocaleTimeString('en-IN', { 
+                    timeZone: 'Asia/Kolkata',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                };
+              }
+            }
+            
+            throw new Error('No data available from any source');
             
           } catch (error) {
             console.warn(`Failed to fetch data for ${index.name}:`, error);
-            // Return placeholder data if API fails
             return this.getFallbackIndexData(index.name);
           }
         })
       );
 
-      console.log('Real market data fetched successfully');
+      console.log('Real market data fetched successfully from Yahoo Finance');
       return results;
       
     } catch (error) {
@@ -177,28 +171,12 @@ class MarketDataService {
     }
   }
 
-  private getYahooSymbol(indexName: string): string {
-    const symbolMap: { [key: string]: string } = {
-      'NIFTY%2050': '^NSEI',
-      'NIFTY 50': '^NSEI',
-      'SENSEX': '^BSESN',
-      'BANK NIFTY': '^NSEBANK',
-      'NIFTY%20BANK': '^NSEBANK',
-      'NIFTY IT': '^CNXIT',
-      'NIFTY%20IT': '^CNXIT'
-    };
-    return symbolMap[indexName] || '^NSEI';
-  }
-
   private getFallbackIndexData(indexName: string): IndexData {
     const baseValues: { [key: string]: number } = {
-      'NIFTY%2050': 21731.40,
       'NIFTY 50': 21731.40,
       'SENSEX': 71595.49,
       'BANK NIFTY': 46816.55,
-      'NIFTY%20BANK': 46816.55,
-      'NIFTY IT': 30847.25,
-      'NIFTY%20IT': 30847.25
+      'NIFTY IT': 30847.25
     };
     
     const baseValue = baseValues[indexName] || 21731.40;
@@ -206,7 +184,7 @@ class MarketDataService {
     const change = (baseValue * changePercent) / 100;
     
     return {
-      name: indexName.replace('%20', ' ').replace('%2050', ' 50'),
+      name: indexName,
       value: baseValue + change,
       change: change,
       changePercent: changePercent,
@@ -227,22 +205,22 @@ class MarketDataService {
     try {
       console.log('Fetching real top gainers data...');
       
-      // Try NSE API first
-      const response = await fetch('https://www.nseindia.com/api/live-analysis-variations?index=gainers', {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
+      // Using a different API endpoint that supports CORS
+      const proxyUrl = 'https://api.allorigins.win/raw?url=';
+      const apiUrl = encodeURIComponent('https://query1.finance.yahoo.com/v1/finance/screener?crumb=xyz&formatted=true&region=IN&lang=en-US&count=5&offset=0&quoteType=EQUITY&sortType=PERCENT_CHANGE&sortField=percentchange&topOperator=GT&topValue=0');
+      
+      const response = await fetch(`${proxyUrl}${apiUrl}`);
       
       if (response.ok) {
         const data = await response.json();
-        return data.NIFTY?.slice(0, 5).map((stock: any) => ({
-          symbol: stock.symbol,
-          price: parseFloat(stock.ltp) || 0,
-          change: parseFloat(stock.netPrice) || 0,
-          changePercent: parseFloat(stock.pChange) || 0
-        })) || this.getFallbackGainers();
+        const quotes = data.finance?.result?.[0]?.quotes || [];
+        
+        return quotes.slice(0, 5).map((stock: any) => ({
+          symbol: stock.symbol || 'N/A',
+          price: stock.regularMarketPrice?.raw || 0,
+          change: stock.regularMarketChange?.raw || 0,
+          changePercent: stock.regularMarketChangePercent?.raw || 0
+        }));
       }
       
       return this.getFallbackGainers();
@@ -257,21 +235,21 @@ class MarketDataService {
     try {
       console.log('Fetching real top losers data...');
       
-      const response = await fetch('https://www.nseindia.com/api/live-analysis-variations?index=losers', {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
+      const proxyUrl = 'https://api.allorigins.win/raw?url=';
+      const apiUrl = encodeURIComponent('https://query1.finance.yahoo.com/v1/finance/screener?crumb=xyz&formatted=true&region=IN&lang=en-US&count=5&offset=0&quoteType=EQUITY&sortType=PERCENT_CHANGE&sortField=percentchange&topOperator=LT&topValue=0');
+      
+      const response = await fetch(`${proxyUrl}${apiUrl}`);
       
       if (response.ok) {
         const data = await response.json();
-        return data.NIFTY?.slice(0, 5).map((stock: any) => ({
-          symbol: stock.symbol,
-          price: parseFloat(stock.ltp) || 0,
-          change: parseFloat(stock.netPrice) || 0,
-          changePercent: parseFloat(stock.pChange) || 0
-        })) || this.getFallbackLosers();
+        const quotes = data.finance?.result?.[0]?.quotes || [];
+        
+        return quotes.slice(0, 5).map((stock: any) => ({
+          symbol: stock.symbol || 'N/A',
+          price: stock.regularMarketPrice?.raw || 0,
+          change: stock.regularMarketChange?.raw || 0,
+          changePercent: stock.regularMarketChangePercent?.raw || 0
+        }));
       }
       
       return this.getFallbackLosers();
@@ -286,20 +264,20 @@ class MarketDataService {
     try {
       console.log('Fetching real volume leaders data...');
       
-      const response = await fetch('https://www.nseindia.com/api/live-analysis-variations?index=volume', {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
+      const proxyUrl = 'https://api.allorigins.win/raw?url=';
+      const apiUrl = encodeURIComponent('https://query1.finance.yahoo.com/v1/finance/screener?crumb=xyz&formatted=true&region=IN&lang=en-US&count=5&offset=0&quoteType=EQUITY&sortType=VOLUME&sortField=volume');
+      
+      const response = await fetch(`${proxyUrl}${apiUrl}`);
       
       if (response.ok) {
         const data = await response.json();
-        return data.NIFTY?.slice(0, 5).map((stock: any) => ({
-          symbol: stock.symbol,
-          volume: this.formatVolume(stock.volume),
-          value: parseFloat(stock.turnover) / 10000000 || 0 // Convert to crores
-        })) || this.getFallbackVolumeLeaders();
+        const quotes = data.finance?.result?.[0]?.quotes || [];
+        
+        return quotes.slice(0, 5).map((stock: any) => ({
+          symbol: stock.symbol || 'N/A',
+          volume: this.formatVolume(stock.regularMarketVolume?.raw || 0),
+          value: (stock.regularMarketVolume?.raw * stock.regularMarketPrice?.raw) / 10000000 || 0
+        }));
       }
       
       return this.getFallbackVolumeLeaders();
