@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { TrendingUp, TrendingDown, Activity, Volume2, Clock, CheckCircle, AlertTriangle, Zap } from 'lucide-react';
 import { MarketDataService, type MarketHours, type IndexData } from '../services/marketDataService';
@@ -24,7 +23,7 @@ const MarketPulse = () => {
     
     const fetchMarketData = async () => {
       try {
-        console.log('🔄 Fetching fresh market data...');
+        console.log('🔄 Fetching LIVE market data every second...');
         
         // Get market hours
         const hours = marketService.getMarketHours();
@@ -33,7 +32,7 @@ const MarketPulse = () => {
         // Store previous indices for comparison
         setPreviousIndices(indices);
         
-        // Get fresh index data
+        // Get ultra-fresh index data
         const indexData = await marketService.getIndexData();
         
         // Detect price changes and trigger animations
@@ -76,7 +75,7 @@ const MarketPulse = () => {
           volumeLeaders: volumeLeaders
         });
         
-        console.log('✅ Market data updated successfully');
+        console.log('✅ LIVE market data updated - 1 second refresh');
         
       } catch (err) {
         console.error('❌ Market data error:', err);
@@ -89,15 +88,15 @@ const MarketPulse = () => {
     // Initial fetch
     fetchMarketData();
 
-    // Set up interval for live updates
+    // Set up interval for ULTRA-FAST live updates (1 second)
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
     
     intervalRef.current = setInterval(() => {
-      console.log('⏰ Auto-refreshing market data...');
+      console.log('⚡ LIVE 1-second update...');
       fetchMarketData();
-    }, 15000); // Update every 15 seconds for more frequent updates
+    }, 1000); // Update every 1 second for real-time trading
 
     return () => {
       if (intervalRef.current) {
@@ -124,7 +123,7 @@ const MarketPulse = () => {
 
   return (
     <div className="space-y-6">
-      {/* Market Status with Live Indicator */}
+      {/* Market Status with Ultra-Live Indicator */}
       <div className="bg-slate-800 rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -132,12 +131,12 @@ const MarketPulse = () => {
             <div>
               <span className="font-medium text-white">Indian Market Status: </span>
               <span className={`font-bold ${getMarketStatusColor()}`}>
-                {marketHours ? (marketHours.isOpen ? 'OPEN' : 'CLOSED') : 'Loading...'}
+                {marketHours ? (marketHours.isOpen ? 'LIVE TRADING' : 'CLOSED') : 'Loading...'}
               </span>
               {dataSource === 'live' && marketHours?.isOpen && (
-                <div className="inline-flex items-center ml-2 px-2 py-1 bg-green-400/10 rounded text-green-400 text-xs">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-1"></div>
-                  LIVE
+                <div className="inline-flex items-center ml-2 px-3 py-1 bg-green-400/20 rounded-full text-green-400 text-xs font-bold">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-ping mr-2"></div>
+                  REAL-TIME • 1s UPDATES
                 </div>
               )}
             </div>
@@ -145,24 +144,24 @@ const MarketPulse = () => {
           {marketHours && (
             <div className="text-sm text-slate-400">
               {marketHours.isOpen 
-                ? `Closes at ${marketHours.nextClose} ${marketHours.timezone}`
+                ? `Live until ${marketHours.nextClose} ${marketHours.timezone}`
                 : `Opens at ${marketHours.nextOpen} ${marketHours.timezone}`
               }
             </div>
           )}
         </div>
         
-        <div className={`mt-3 flex items-center justify-between p-3 rounded ${
+        <div className={`mt-3 flex items-center justify-between p-3 rounded-lg border-2 ${
           dataSource === 'live' 
-            ? 'text-green-400 bg-green-400/10' 
-            : 'text-orange-400 bg-orange-400/10'
+            ? 'text-green-400 bg-green-400/10 border-green-400/30' 
+            : 'text-orange-400 bg-orange-400/10 border-orange-400/30'
         }`}>
           <div className="flex items-center space-x-2">
             {dataSource === 'live' ? (
               <>
                 <CheckCircle className="h-4 w-4" />
-                <span className="text-sm">
-                  Real-time data from Yahoo Finance • Updates every 15 seconds
+                <span className="text-sm font-semibold">
+                  🚀 ULTRA-LIVE DATA • Yahoo Finance API • 1-Second Refresh
                 </span>
               </>
             ) : (
@@ -175,28 +174,28 @@ const MarketPulse = () => {
             )}
           </div>
           {lastUpdateTime && (
-            <div className="text-xs opacity-75">
-              Last update: {lastUpdateTime}
+            <div className="text-xs opacity-75 font-mono bg-black/20 px-2 py-1 rounded">
+              ⚡ {lastUpdateTime}
             </div>
           )}
         </div>
       </div>
 
-      {/* Market Indices with Live Updates */}
-      <div className="bg-slate-800 rounded-lg p-6">
+      {/* Market Indices with Ultra-Live Updates */}
+      <div className="bg-slate-800 rounded-lg p-6 border-2 border-green-400/20">
         <h2 className="text-xl font-semibold mb-4 flex items-center">
           <Activity className="h-5 w-5 mr-2 text-green-400" />
-          Indian Market Indices
+          🔥 LIVE Indian Market Indices
           {isLoading && (
             <div className="ml-2 flex items-center text-sm text-slate-400">
-              <div className="animate-spin w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full mr-1"></div>
-              Updating...
+              <div className="animate-spin w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full mr-1"></div>
+              Fetching...
             </div>
           )}
           {dataSource === 'live' && !isLoading && (
             <div className="ml-2 flex items-center text-sm text-green-400">
-              <Zap className="w-4 h-4 mr-1" />
-              Live Data
+              <Zap className="w-4 h-4 mr-1 animate-pulse" />
+              REAL-TIME
             </div>
           )}
         </h2>
@@ -205,18 +204,23 @@ const MarketPulse = () => {
           {indices.map((index) => (
             <div 
               key={index.name} 
-              className={`bg-slate-700 rounded-lg p-4 transition-all duration-500 ${getPriceChangeAnimation(index.name)}`}
+              className={`bg-slate-700 rounded-lg p-4 transition-all duration-300 border-2 ${
+                getPriceChangeAnimation(index.name) || 'border-slate-600'
+              }`}
             >
               <h3 className="font-medium text-slate-300 mb-2 flex items-center justify-between">
                 {index.name}
-                {priceAnimations[index.name] && (
-                  <div className={`w-2 h-2 rounded-full ${
-                    priceAnimations[index.name] === 'up' ? 'bg-green-400' : 'bg-red-400'
-                  } animate-ping`}></div>
-                )}
+                <div className="flex items-center space-x-1">
+                  {priceAnimations[index.name] && (
+                    <div className={`w-2 h-2 rounded-full animate-ping ${
+                      priceAnimations[index.name] === 'up' ? 'bg-green-400' : 'bg-red-400'
+                    }`}></div>
+                  )}
+                  <div className="w-1 h-1 bg-green-400 rounded-full animate-pulse"></div>
+                </div>
               </h3>
-              <div className="text-2xl font-bold mb-1">₹{formatValue(index.value)}</div>
-              <div className={`flex items-center space-x-1 text-sm ${
+              <div className="text-2xl font-bold mb-1 font-mono">₹{formatValue(index.value)}</div>
+              <div className={`flex items-center space-x-1 text-sm font-semibold ${
                 index.change >= 0 ? 'text-green-400' : 'text-red-400'
               }`}>
                 {index.change >= 0 ? (
@@ -227,8 +231,8 @@ const MarketPulse = () => {
                 <span>{formatChange(index.change)}</span>
                 <span>({formatPercent(index.changePercent)})</span>
               </div>
-              <div className="text-xs text-slate-500 mt-1">
-                {dataSource === 'live' ? index.lastUpdated : 'Simulated data'}
+              <div className="text-xs text-slate-500 mt-1 font-mono">
+                {dataSource === 'live' ? `Live • ${index.lastUpdated}` : 'Simulated data'}
               </div>
             </div>
           ))}
