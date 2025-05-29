@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { MarketDataService, type SectorData } from '../services/marketDataService';
 import SectorAnalysisHeader from './SectorAnalysisHeader';
@@ -12,6 +11,7 @@ const SectorScope = () => {
   const [sectorData, setSectorData] = useState<SectorData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
+  const [marketHours, setMarketHours] = useState<any>(null);
   
   const [topStocks, setTopStocks] = useState({
     momentum: [
@@ -30,33 +30,44 @@ const SectorScope = () => {
     ]
   });
 
-  // Real-time updates every second
+  // Market-aware updates
   useEffect(() => {
     const marketService = new MarketDataService();
     
     const fetchLiveSectorData = async () => {
       try {
-        console.log('📊 Fetching LIVE sector data with AI predictions...');
+        console.log('📊 Checking market status for sector analysis...');
         setIsLoading(true);
+        
+        // Get market hours first
+        const hours = marketService.getMarketHours();
+        setMarketHours(hours);
         
         // Get real-time sector data with predictions
         const liveSectorData = await marketService.getLiveSectorData();
         setSectorData(liveSectorData);
         
-        // Update top stocks with live predictions
-        setTopStocks(prev => ({
-          momentum: prev.momentum.map(stock => ({
-            ...stock,
-            change: stock.change + (Math.random() - 0.5) * 0.5,
-            price: stock.price + (Math.random() - 0.5) * 10,
-            prediction: Math.random() > 0.6 ? 'BUY' : Math.random() > 0.3 ? 'HOLD' : 'SELL'
-          })),
-          volume: prev.volume.map(stock => ({
-            ...stock,
-            turnover: stock.turnover + (Math.random() - 0.5) * 100,
-            prediction: Math.random() > 0.6 ? 'BUY' : Math.random() > 0.3 ? 'HOLD' : 'SELL'
-          }))
-        }));
+        // Update top stocks based on market status
+        if (hours.isOpen) {
+          // Only add small variations during market hours
+          setTopStocks(prev => ({
+            momentum: prev.momentum.map(stock => ({
+              ...stock,
+              change: stock.change + (Math.random() - 0.5) * 0.2, // Smaller variation
+              price: stock.price + (Math.random() - 0.5) * 5, // Smaller price changes
+              prediction: Math.random() > 0.8 ? 'BUY' : Math.random() > 0.4 ? 'HOLD' : 'SELL'
+            })),
+            volume: prev.volume.map(stock => ({
+              ...stock,
+              turnover: stock.turnover + (Math.random() - 0.5) * 50, // Smaller turnover changes
+              prediction: Math.random() > 0.8 ? 'BUY' : Math.random() > 0.4 ? 'HOLD' : 'SELL'
+            }))
+          }));
+          console.log('✅ LIVE sector data updated with market-hours analysis');
+        } else {
+          // Keep data fixed when market is closed
+          console.log('📊 Market CLOSED - Sector data fixed (no fluctuations)');
+        }
         
         setLastUpdateTime(new Date().toLocaleTimeString('en-IN', { 
           timeZone: 'Asia/Kolkata',
@@ -64,8 +75,6 @@ const SectorScope = () => {
           minute: '2-digit',
           second: '2-digit'
         }));
-        
-        console.log('✅ LIVE sector data updated with AI analysis');
         
       } catch (error) {
         console.error('❌ Sector data error:', error);
@@ -77,29 +86,63 @@ const SectorScope = () => {
     // Initial fetch
     fetchLiveSectorData();
 
-    // Set up 1-second intervals for real-time sector analysis
-    const interval = setInterval(() => {
-      console.log('⚡ Real-time sector update...');
-      fetchLiveSectorData();
-    }, 1000);
+    // Set up interval based on market status
+    const marketService2 = new MarketDataService();
+    const hours = marketService2.getMarketHours();
+    
+    let interval: NodeJS.Timeout;
+    
+    if (hours.isOpen) {
+      // Update every 1 second during market hours for real-time sector analysis
+      interval = setInterval(() => {
+        console.log('⚡ Real-time sector update (market open)...');
+        fetchLiveSectorData();
+      }, 1000);
+    } else {
+      // Update every 30 seconds when market is closed (just for status check)
+      interval = setInterval(() => {
+        console.log('📊 Sector status check (market closed)...');
+        fetchLiveSectorData();
+      }, 30000);
+    }
 
     return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="space-y-6">
-      <SectorAnalysisHeader lastUpdateTime={lastUpdateTime} isLoading={isLoading} />
+      <SectorAnalysisHeader 
+        lastUpdateTime={lastUpdateTime} 
+        isLoading={isLoading}
+        marketStatus={marketHours?.isOpen ? 'OPEN' : 'CLOSED'}
+      />
       
-      <LiveSectorPerformance sectorData={sectorData} isLoading={isLoading} />
+      <LiveSectorPerformance 
+        sectorData={sectorData} 
+        isLoading={isLoading}
+        marketStatus={marketHours?.isOpen ? 'OPEN' : 'CLOSED'}
+      />
       
-      <SectorHeatmap sectorData={sectorData} />
+      <SectorHeatmap 
+        sectorData={sectorData}
+        marketStatus={marketHours?.isOpen ? 'OPEN' : 'CLOSED'}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TopMomentumStocks topStocks={topStocks.momentum} />
-        <VolumeLeaders topStocks={topStocks.volume} />
+        <TopMomentumStocks 
+          topStocks={topStocks.momentum}
+          marketStatus={marketHours?.isOpen ? 'OPEN' : 'CLOSED'}
+        />
+        <VolumeLeaders 
+          topStocks={topStocks.volume}
+          marketStatus={marketHours?.isOpen ? 'OPEN' : 'CLOSED'}
+        />
       </div>
 
-      <SectorLeadersTable sectorData={sectorData} />
+      <SectorLeadersTable 
+        sectorData={sectorData}
+        marketStatus={marketHours?.isOpen ? 'OPEN' : 'CLOSED'}
+      />
     </div>
   );
 };

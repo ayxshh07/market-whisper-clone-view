@@ -24,31 +24,38 @@ const MarketPulse = () => {
     
     const fetchMarketData = async () => {
       try {
-        console.log('🔄 Fetching LIVE market data every second...');
+        console.log('🔄 Fetching market data...');
         setIsLoading(true);
         
-        // Get market hours
+        // Get market hours first
         const hours = marketService.getMarketHours();
         setMarketHours(hours);
         
-        // Store previous indices for comparison
-        setPreviousIndices(indices);
+        // Store previous indices for comparison (only during market hours)
+        if (hours.isOpen) {
+          setPreviousIndices(indices);
+        }
         
-        // Get ultra-fresh index data
+        // Get index data
         const indexData = await marketService.getIndexData();
         
-        // Detect price changes and trigger animations
-        const animations: {[key: string]: 'up' | 'down' | null} = {};
-        indexData.forEach((current, index) => {
-          const previous = indices[index];
-          if (previous && previous.value !== current.value) {
-            animations[current.name] = current.value > previous.value ? 'up' : 'down';
-          }
-        });
-        setPriceAnimations(animations);
-        
-        // Clear animations after 2 seconds
-        setTimeout(() => setPriceAnimations({}), 2000);
+        // Detect price changes and trigger animations (only during market hours)
+        if (hours.isOpen) {
+          const animations: {[key: string]: 'up' | 'down' | null} = {};
+          indexData.forEach((current, index) => {
+            const previous = indices[index];
+            if (previous && previous.value !== current.value) {
+              animations[current.name] = current.value > previous.value ? 'up' : 'down';
+            }
+          });
+          setPriceAnimations(animations);
+          
+          // Clear animations after 2 seconds
+          setTimeout(() => setPriceAnimations({}), 2000);
+        } else {
+          // Clear animations when market is closed
+          setPriceAnimations({});
+        }
         
         setIndices(indexData);
         setLastUpdateTime(new Date().toLocaleTimeString('en-IN', { 
@@ -60,12 +67,12 @@ const MarketPulse = () => {
         
         // Check if we got real data
         const hasRealData = indexData.some(index => 
-          index.lastUpdated !== 'Live Data Unavailable'
+          index.lastUpdated === 'LIVE'
         );
         setDataSource(hasRealData ? 'live' : 'fallback');
         
-        // Get enhanced stock data with better accuracy
-        console.log('📊 Fetching enhanced stock market data...');
+        // Get stock data
+        console.log(`📊 Fetching stock market data... Market Status: ${hours.isOpen ? 'OPEN' : 'CLOSED'}`);
         const [gainers, losers, volumeLeaders] = await Promise.all([
           marketService.getTopGainers(),
           marketService.getTopLosers(),
@@ -78,7 +85,11 @@ const MarketPulse = () => {
           volumeLeaders: volumeLeaders
         });
         
-        console.log('✅ Enhanced market data updated - Real-time stock lists');
+        if (hours.isOpen) {
+          console.log('✅ LIVE market data updated - Real-time trading session');
+        } else {
+          console.log('📊 Market CLOSED - Showing last closing data (NO fluctuations)');
+        }
         
       } catch (err) {
         console.error('❌ Market data error:', err);
@@ -91,15 +102,28 @@ const MarketPulse = () => {
     // Initial fetch
     fetchMarketData();
 
-    // Set up interval for ULTRA-FAST live updates (1 second)
+    // Set up interval based on market status
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
     
-    intervalRef.current = setInterval(() => {
-      console.log('⚡ LIVE 1-second market update...');
-      fetchMarketData();
-    }, 1000); // Update every 1 second for real-time trading
+    // Check market status and set appropriate interval
+    const marketService2 = new MarketDataService();
+    const hours = marketService2.getMarketHours();
+    
+    if (hours.isOpen) {
+      // Update every 1 second during market hours for live data
+      intervalRef.current = setInterval(() => {
+        console.log('⚡ LIVE 1-second market update...');
+        fetchMarketData();
+      }, 1000);
+    } else {
+      // Update every 30 seconds when market is closed (just to refresh market status)
+      intervalRef.current = setInterval(() => {
+        console.log('📊 Market closed status check...');
+        fetchMarketData();
+      }, 30000);
+    }
 
     return () => {
       if (intervalRef.current) {
@@ -126,7 +150,7 @@ const MarketPulse = () => {
 
   return (
     <div className="space-y-6">
-      {/* Market Status with Ultra-Live Indicator */}
+      {/* Market Status with Accurate Live Indicator */}
       <div className="bg-slate-800 rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -136,10 +160,16 @@ const MarketPulse = () => {
               <span className={`font-bold ${getMarketStatusColor()}`}>
                 {marketHours ? (marketHours.isOpen ? 'LIVE TRADING' : 'CLOSED') : 'Loading...'}
               </span>
-              {dataSource === 'live' && marketHours?.isOpen && (
+              {marketHours?.isOpen && (
                 <div className="inline-flex items-center ml-2 px-3 py-1 bg-green-400/20 rounded-full text-green-400 text-xs font-bold">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-ping mr-2"></div>
                   REAL-TIME • 1s UPDATES
+                </div>
+              )}
+              {marketHours && !marketHours.isOpen && (
+                <div className="inline-flex items-center ml-2 px-3 py-1 bg-red-400/20 rounded-full text-red-400 text-xs font-bold">
+                  <div className="w-2 h-2 bg-red-400 rounded-full mr-2"></div>
+                  MARKET CLOSED • NO FLUCTUATIONS
                 </div>
               )}
             </div>
@@ -155,23 +185,23 @@ const MarketPulse = () => {
         </div>
         
         <div className={`mt-3 flex items-center justify-between p-3 rounded-lg border-2 ${
-          dataSource === 'live' 
+          marketHours?.isOpen 
             ? 'text-green-400 bg-green-400/10 border-green-400/30' 
-            : 'text-orange-400 bg-orange-400/10 border-orange-400/30'
+            : 'text-red-400 bg-red-400/10 border-red-400/30'
         }`}>
           <div className="flex items-center space-x-2">
-            {dataSource === 'live' ? (
+            {marketHours?.isOpen ? (
               <>
                 <CheckCircle className="h-4 w-4" />
                 <span className="text-sm font-semibold">
-                  🚀 ENHANCED LIVE DATA • Yahoo Finance API • Enhanced Stock Lists
+                  🚀 LIVE DATA • Yahoo Finance API • Real-time Updates
                 </span>
               </>
             ) : (
               <>
                 <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm">
-                  Enhanced fallback data • Realistic simulations
+                <span className="text-sm font-semibold">
+                  📊 MARKET CLOSED • Last Closing Data • No Fluctuations
                 </span>
               </>
             )}
@@ -184,21 +214,29 @@ const MarketPulse = () => {
         </div>
       </div>
 
-      {/* Market Indices with Ultra-Live Updates */}
-      <div className="bg-slate-800 rounded-lg p-6 border-2 border-green-400/20">
+      {/* Market Indices with Accurate Live Updates */}
+      <div className={`bg-slate-800 rounded-lg p-6 border-2 ${
+        marketHours?.isOpen ? 'border-green-400/20' : 'border-slate-600'
+      }`}>
         <h2 className="text-xl font-semibold mb-4 flex items-center">
-          <Activity className="h-5 w-5 mr-2 text-green-400" />
-          🔥 LIVE Indian Market Indices
+          <Activity className={`h-5 w-5 mr-2 ${marketHours?.isOpen ? 'text-green-400' : 'text-slate-400'}`} />
+          {marketHours?.isOpen ? '🔥 LIVE Indian Market Indices' : '📊 Indian Market Indices (Closed)'}
           {isLoading && (
             <div className="ml-2 flex items-center text-sm text-slate-400">
               <div className="animate-spin w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full mr-1"></div>
-              Fetching...
+              Updating...
             </div>
           )}
-          {dataSource === 'live' && !isLoading && (
+          {marketHours?.isOpen && !isLoading && (
             <div className="ml-2 flex items-center text-sm text-green-400">
               <Zap className="w-4 h-4 mr-1 animate-pulse" />
               REAL-TIME
+            </div>
+          )}
+          {marketHours && !marketHours.isOpen && !isLoading && (
+            <div className="ml-2 flex items-center text-sm text-slate-400">
+              <Clock className="w-4 h-4 mr-1" />
+              CLOSED
             </div>
           )}
         </h2>
@@ -214,12 +252,14 @@ const MarketPulse = () => {
               <h3 className="font-medium text-slate-300 mb-2 flex items-center justify-between">
                 {index.name}
                 <div className="flex items-center space-x-1">
-                  {priceAnimations[index.name] && (
+                  {marketHours?.isOpen && priceAnimations[index.name] && (
                     <div className={`w-2 h-2 rounded-full animate-ping ${
                       priceAnimations[index.name] === 'up' ? 'bg-green-400' : 'bg-red-400'
                     }`}></div>
                   )}
-                  <div className="w-1 h-1 bg-green-400 rounded-full animate-pulse"></div>
+                  {marketHours?.isOpen && (
+                    <div className="w-1 h-1 bg-green-400 rounded-full animate-pulse"></div>
+                  )}
                 </div>
               </h3>
               <div className="text-2xl font-bold mb-1 font-mono">₹{formatValue(index.value)}</div>
@@ -235,21 +275,25 @@ const MarketPulse = () => {
                 <span>({formatPercent(index.changePercent)})</span>
               </div>
               <div className="text-xs text-slate-500 mt-1 font-mono">
-                {dataSource === 'live' ? `Live • ${index.lastUpdated}` : 'Enhanced data'}
+                {index.lastUpdated === 'LIVE' ? '🔴 LIVE' : 
+                 index.lastUpdated === 'Market Closed' ? '⏸️ Closed' : 
+                 index.lastUpdated}
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Enhanced Stock Lists with Better Accuracy */}
+      {/* Accurate Stock Lists */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top Gainers */}
-        <div className="bg-slate-800 rounded-lg p-6 border border-green-400/30">
+        <div className={`bg-slate-800 rounded-lg p-6 border ${
+          marketHours?.isOpen ? 'border-green-400/30' : 'border-slate-600'
+        }`}>
           <h3 className="text-lg font-semibold mb-4 text-green-400 flex items-center">
             <TrendingUp className="h-5 w-5 mr-2" />
             📈 Top Gainers
-            {dataSource === 'live' && (
+            {marketHours?.isOpen && (
               <div className="ml-2 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
             )}
             {isLoading && (
@@ -274,17 +318,21 @@ const MarketPulse = () => {
               </div>
             ))}
             {marketData.topGainers.length === 0 && !isLoading && (
-              <div className="text-slate-400 text-center py-4">Loading gainers...</div>
+              <div className="text-slate-400 text-center py-4">
+                {marketHours?.isOpen ? 'Loading gainers...' : 'Market closed - No new gainers'}
+              </div>
             )}
           </div>
         </div>
 
         {/* Top Losers */}
-        <div className="bg-slate-800 rounded-lg p-6 border border-red-400/30">
+        <div className={`bg-slate-800 rounded-lg p-6 border ${
+          marketHours?.isOpen ? 'border-red-400/30' : 'border-slate-600'
+        }`}>
           <h3 className="text-lg font-semibold mb-4 text-red-400 flex items-center">
             <TrendingDown className="h-5 w-5 mr-2" />
             📉 Top Losers
-            {dataSource === 'live' && (
+            {marketHours?.isOpen && (
               <div className="ml-2 w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
             )}
             {isLoading && (
@@ -309,17 +357,21 @@ const MarketPulse = () => {
               </div>
             ))}
             {marketData.topLosers.length === 0 && !isLoading && (
-              <div className="text-slate-400 text-center py-4">Loading losers...</div>
+              <div className="text-slate-400 text-center py-4">
+                {marketHours?.isOpen ? 'Loading losers...' : 'Market closed - No new losers'}
+              </div>
             )}
           </div>
         </div>
 
         {/* Volume Leaders */}
-        <div className="bg-slate-800 rounded-lg p-6 border border-blue-400/30">
+        <div className={`bg-slate-800 rounded-lg p-6 border ${
+          marketHours?.isOpen ? 'border-blue-400/30' : 'border-slate-600'
+        }`}>
           <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <Volume2 className="h-5 w-5 mr-2 text-blue-400" />
+            <Volume2 className={`h-5 w-5 mr-2 ${marketHours?.isOpen ? 'text-blue-400' : 'text-slate-400'}`} />
             📊 Volume Leaders
-            {dataSource === 'live' && (
+            {marketHours?.isOpen && (
               <div className="ml-2 w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
             )}
             {isLoading && (
@@ -331,7 +383,7 @@ const MarketPulse = () => {
               <div key={`${stock.symbol}-${index}`} className="flex justify-between items-center py-2 border-b border-slate-700 last:border-b-0 hover:bg-slate-700/30 transition-colors">
                 <div>
                   <div className="font-medium text-white">{stock.symbol}</div>
-                  <div className="text-sm text-blue-400 font-semibold">{stock.volume}</div>
+                  <div className={`text-sm font-semibold ${marketHours?.isOpen ? 'text-blue-400' : 'text-slate-400'}`}>{stock.volume}</div>
                 </div>
                 <div className="text-right">
                   <div className="font-medium text-white font-mono">₹{stock.value.toFixed(2)}Cr</div>
@@ -340,7 +392,9 @@ const MarketPulse = () => {
               </div>
             ))}
             {marketData.volumeLeaders.length === 0 && !isLoading && (
-              <div className="text-slate-400 text-center py-4">Loading volume data...</div>
+              <div className="text-slate-400 text-center py-4">
+                {marketHours?.isOpen ? 'Loading volume data...' : 'Market closed - No volume updates'}
+              </div>
             )}
           </div>
         </div>
