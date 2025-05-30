@@ -9,7 +9,7 @@ import { GrowwDataService } from '../services/growwDataService';
 
 const GrowwClone = () => {
   const [activeTab, setActiveTab] = useState('explore');
-  const [selectedSegment, setSelectedSegment] = useState('futures');
+  const [selectedSegment, setSelectedSegment] = useState<'futures' | 'options'>('futures');
   const [foData, setFoData] = useState<any>({
     topGainers: [],
     topLosers: [],

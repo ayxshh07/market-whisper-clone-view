@@ -4,8 +4,8 @@ import { Search, Bell, User, Menu, TrendingUp } from 'lucide-react';
 
 interface FOHeaderProps {
   onMenuClick: () => void;
-  selectedSegment: string;
-  onSegmentChange: (segment: string) => void;
+  selectedSegment: 'futures' | 'options';
+  onSegmentChange: (segment: 'futures' | 'options') => void;
 }
 
 const FOHeader = ({ onMenuClick, selectedSegment, onSegmentChange }: FOHeaderProps) => {
