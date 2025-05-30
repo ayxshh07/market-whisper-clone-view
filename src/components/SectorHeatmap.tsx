@@ -4,6 +4,7 @@ import { type SectorData } from '../services/marketDataService';
 
 interface SectorHeatmapProps {
   sectorData: SectorData[];
+  marketStatus?: string;
 }
 
 const SectorHeatmap = ({ sectorData }: SectorHeatmapProps) => {

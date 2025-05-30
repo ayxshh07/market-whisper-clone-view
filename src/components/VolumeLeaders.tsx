@@ -1,4 +1,3 @@
-
 import { Brain } from 'lucide-react';
 
 interface VolumeStock {
@@ -11,9 +10,10 @@ interface VolumeStock {
 
 interface VolumeLeadersProps {
   topStocks: VolumeStock[];
+  marketStatus?: string;
 }
 
-const VolumeLeaders = ({ topStocks }: VolumeLeadersProps) => {
+const VolumeLeaders = ({ topStocks, marketStatus }: VolumeLeadersProps) => {
   const getStockPredictionColor = (prediction: string) => {
     switch (prediction) {
       case 'BUY': return 'text-green-400 bg-green-400/10';

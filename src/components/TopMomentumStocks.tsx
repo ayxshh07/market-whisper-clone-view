@@ -1,4 +1,3 @@
-
 import { Zap, TrendingUp } from 'lucide-react';
 
 interface MomentumStock {
@@ -11,9 +10,10 @@ interface MomentumStock {
 
 interface TopMomentumStocksProps {
   topStocks: MomentumStock[];
+  marketStatus?: string;
 }
 
-const TopMomentumStocks = ({ topStocks }: TopMomentumStocksProps) => {
+const TopMomentumStocks = ({ topStocks, marketStatus }: TopMomentumStocksProps) => {
   const getStockPredictionColor = (prediction: string) => {
     switch (prediction) {
       case 'BUY': return 'text-green-400 bg-green-400/10';

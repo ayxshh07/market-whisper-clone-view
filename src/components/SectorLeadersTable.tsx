@@ -4,6 +4,7 @@ import { type SectorData } from '../services/marketDataService';
 
 interface SectorLeadersTableProps {
   sectorData: SectorData[];
+  marketStatus?: string;
 }
 
 const SectorLeadersTable = ({ sectorData }: SectorLeadersTableProps) => {

@@ -1,9 +1,11 @@
+
 import { 
   type MarketHours, 
   type IndexData, 
   type TechnicalIndicator, 
   type TradingSignal, 
-  type SectorData 
+  type SectorData,
+  type StockQuote
 } from '../types/marketTypes';
 import { STOCK_CACHE } from '../data/stockData';
 import { MarketHoursService } from '../utils/marketHours';
