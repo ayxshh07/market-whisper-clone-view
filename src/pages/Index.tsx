@@ -36,8 +36,16 @@ const Index = () => {
             <TrendingUp className="h-8 w-8 text-green-400" />
             <h1 className="text-2xl font-bold">TradeFinder Clone</h1>
           </div>
-          <div className="text-sm text-slate-400">
-            Live Indian Market Analysis • Real-time Data
+          <div className="flex items-center space-x-4">
+            <a 
+              href="/groww" 
+              className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              🚀 Groww F&O Clone
+            </a>
+            <div className="text-sm text-slate-400">
+              Live Indian Market Analysis • Real-time Data
+            </div>
           </div>
         </div>
       </header>
